@@ -18,6 +18,7 @@
 **   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA               **
 *********************************************************************************/
 
+#include "qtwin.h"
 #include <QtCore/QDebug>
 #include <QtCore/QtConcurrentRun>
 #include <QtGui/QPainter>
@@ -41,9 +42,11 @@
 #include <QtGui/QPalette>
 #include <QPageSetupDialog>
 #include <QDesktopServices>
+#include <QUrl>
 
 #include "soulnote.h"
 #include "about.h"
+#include "preferences.h"
 
 SoulNote::SoulNote(QWidget *parent) :
         QMainWindow(parent){
@@ -58,11 +61,18 @@ SoulNote::SoulNote(QWidget *parent) :
     m_gridLayout->setMargin(0);
 
     setCentralWidget(m_centralWidget);
+    //setCentralWidget(textEditor);
+    setAcceptDrops(true);
+    m_centralWidget->setAcceptDrops(true);
     m_centralWidget->setLayout(m_gridLayout);
     m_gridLayout->addWidget(textEditor, 2, 0);
 
     setWindowTitle("Unsaved Document - SoulNote");
     textEditor->setDocumentTitle("Unsaved Document");
+    textEditor->setFont(QFont("Courier New", 10));
+    textEditor->setWordWrapMode(QTextOption::NoWrap);
+    textEditor->setLineWrapMode(QPlainTextEdit::NoWrap);
+    textEditor->setAcceptDrops(true);
 
     findWidget = new FindWidget(textEditor);
     m_gridLayout->addWidget(findWidget, 3, 0);
@@ -89,11 +99,15 @@ SoulNote::SoulNote(QWidget *parent) :
     m_fileCodec = QTextCodec::codecForName("UTF-8");
     m_wasHidden = false;
     m_about = 0;
+    m_preferences = 0;
 
     ui.action_Toolbar->setChecked(false);
     ui.toolBar->hide();
-    ui.action_Statusbar->setChecked(true);
-    ui.action_ShowLineNumbers->setChecked(true);
+    ui.action_Statusbar->setChecked(false);
+    ui.action_ShowLineNumbers->setChecked(false);
+    textEditor->setLineNumberAreaVisible(false);
+    ui.statusbar->hide();
+
 
     readSettings();
     setCurrentFile("");
@@ -101,7 +115,7 @@ SoulNote::SoulNote(QWidget *parent) :
 
     qApp->setOrganizationDomain("http://soulless.ir/");
     QCoreApplication::setApplicationName(QLatin1String("SoulNote"));
-    QCoreApplication::setApplicationVersion(QLatin1String("0.0.1")); //Core::Constants::TE_VERSION_LONG
+    QCoreApplication::setApplicationVersion(QLatin1String("0.1.0")); //Core::Constants::TE_VERSION_LONG
     QCoreApplication::setOrganizationName(QLatin1String("Soulless"));
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
@@ -130,7 +144,7 @@ SoulNote::SoulNote(QWidget *parent) :
     ui.action_GoToLine->setIcon(QIcon::fromTheme("go-jump"));
     ui.action_Preferences->setIcon(QIcon::fromTheme("preferences-system")); //emblem-system
     ui.action_Fullscreen->setIcon(QIcon::fromTheme("view-fullscreen"));
-    ui.action_About->setIcon(QIcon::fromTheme("help-about"));
+    ui.action_About->setIcon(QIcon::fromTheme("help-about"));    
 
 
     connect(textEditor->document(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()) );
@@ -171,6 +185,7 @@ bool SoulNote::eventFilter(QObject *obj, QEvent *event)
             return true;
         }
         return QObject::eventFilter(obj, event);
+        // && obj == m_centralWidget
     } else {
         // standard event processing
         return QObject::eventFilter(obj, event);
@@ -198,9 +213,6 @@ void SoulNote::exit_triggered()
 {
     this->close();
 }
-
-
-
 
 /****** Initialization *****/
 void SoulNote::createActions()
@@ -271,8 +283,8 @@ void SoulNote::on_action_New_triggered()
 void SoulNote::on_action_Open_triggered()
 {
     QString fileName = QFileDialog::getOpenFileName(this, tr("Select files to open..."), "");
-
-    openDocument(fileName);
+    if (fileName != NULL)
+        openDocument(fileName);
 }
 
 void SoulNote::on_action_Save_triggered()
@@ -395,7 +407,7 @@ void SoulNote::on_action_GoToLine_triggered()
 
 void SoulNote::on_action_Preferences_triggered()
 {
-    /*!  */
+    preferencesSoulNote();
 }
 
 void SoulNote::on_action_Toolbar_triggered()
@@ -452,7 +464,23 @@ void SoulNote::aboutSoulNote()
         connect(m_about, SIGNAL(finished(int)),
                 this, SLOT(destroyAboutDialog()));
     }
+    if (QtWin::isCompositionEnabled()) {
+        QtWin::extendFrameIntoClientArea(static_cast<QWidget *>(m_about));
+    }
+    m_about->setContentsMargins(3, 8, 3, 3);
     m_about->show();
+}
+
+void SoulNote::preferencesSoulNote()
+{
+    if (!m_preferences) {
+        m_preferences = new Preferences(this);
+        connect(m_preferences, SIGNAL(destroyed()),
+                this, SLOT(destroyPreferencesDialog()));
+    }
+
+    m_preferences->setContentsMargins(3, 8, 3, 3);    
+    m_preferences->show();
 }
 
 void SoulNote::destroyAboutDialog()
@@ -460,6 +488,13 @@ void SoulNote::destroyAboutDialog()
     if (m_about) {
         m_about->deleteLater();
         m_about = 0;
+    }
+}
+void SoulNote::destroyPreferencesDialog()
+{
+    if (m_preferences) {
+        m_preferences->deleteLater();
+        m_preferences = 0;
     }
 }
 
@@ -500,16 +535,21 @@ QString SoulNote::readFile(const QString &fileName)
 
 void SoulNote::openDocument(const QString &fileName)
 {
-    qApp->setOverrideCursor(Qt::WaitCursor);
-    ui.statusbar->showMessage(trUtf8("Loading ..."));
-    QFuture<QString> f1 = QtConcurrent::run(this, &SoulNote::readFile, fileName);
-    f1.waitForFinished();
-    QString result = f1.result();
-    qApp->restoreOverrideCursor();
-    setCurrentFile(fileName);
-    ui.statusbar->showMessage(tr("File %1 loaded").arg(fileName), 3000);
-    this->setWindowFilePath(fileName);
-    setEditorText(result);
+    if (fileName == NULL)
+        return;
+    if (maybeSave()) {
+        qApp->setOverrideCursor(Qt::WaitCursor);
+        ui.statusbar->showMessage(trUtf8("Loading ..."));
+        QFuture<QString> f1 = QtConcurrent::run(this, &SoulNote::readFile, fileName);
+        f1.waitForFinished();
+        QString result = f1.result();
+        qApp->restoreOverrideCursor();
+        setCurrentFile(fileName);
+        ui.statusbar->showMessage(tr("File %1 loaded").arg(fileName), 3000);
+        this->setWindowFilePath(fileName);
+        setEditorText(result);
+        setWindowModified(false);
+    }
 }
 
 bool SoulNote::saveDocument()
@@ -570,8 +610,12 @@ bool SoulNote::saveDocument()
 
 bool SoulNote::saveFile(const QString &fileName)
 {
-#ifdef Q_WS_WIN
-    QFile file(fileName + ".txt");
+#ifdef Q_WS_WIN    
+    QFile file(fileName);
+    if (fileName.indexOf(QRegExp("\.\w{3}")))
+        file.setFileName(fileName);
+    else
+        file.setFileName(fileName + ".txt");
 #else
     QFile file(fileName);
 #endif
@@ -704,7 +748,7 @@ void SoulNote::writeSettings()
     QSettings settings(QSettings::IniFormat, QSettings::UserScope, "Soulless", "SoulNote");
 
     settings.beginGroup("MainWindow");
-    //settings.setValue("Font", textEditor->currentFont());
+    settings.setValue("Font", textEditor->font());
     settings.setValue(QLatin1String(LineWrapping), textEditor->lineWrapMode());
     settings.setValue(QLatin1String(WordWrapping), textEditor->wordWrapMode());
     settings.setValue("FilePath",this->windowFilePath());
@@ -741,8 +785,35 @@ void SoulNote::readSettings()
         setWindowState(Qt::WindowMaximized);
 
     setFullScreen(settings.value(QLatin1String(fullScreenKey), false).toBool());
-    //textEditor->setFont(settings.value("Font", QFont("Monospace", 10)).value<QFont>());
-    textEditor->setLineWrapMode(QPlainTextEdit::LineWrapMode(settings.value(QLatin1String(LineWrapping), 1).toInt()));
-    textEditor->setWordWrapMode(QTextOption::WrapMode(settings.value(QLatin1String(WordWrapping), 4).toInt()));
+    textEditor->setFont(settings.value("Font", QFont("Courier New", 10)).value<QFont>());
+    textEditor->setLineWrapMode(QPlainTextEdit::LineWrapMode(settings.value(QLatin1String(LineWrapping), 0).toInt()));
+    textEditor->setWordWrapMode(QTextOption::WrapMode(settings.value(QLatin1String(WordWrapping), 0).toInt()));
     settings.endGroup();
+}
+
+void SoulNote::dropEvent(QDropEvent *event)
+{
+    QList<QUrl> urlList;
+    QString fName;
+    QFileInfo info;
+
+    if (event->mimeData()->hasUrls())
+    {
+        urlList = event->mimeData()->urls();
+
+        if ( urlList.size() > 0)
+        {
+            fName = urlList[0].toLocalFile();
+            info.setFile( fName );
+            if ( info.isFile() )
+                openDocument(fName);
+        }
+    }
+    event->acceptProposedAction();
+}
+
+void SoulNote::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls())
+        event->acceptProposedAction();
 }

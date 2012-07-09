@@ -18,8 +18,12 @@
 **   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA               **
 *********************************************************************************/
 
+#include <windows.h>
+
 #include "mainconstants.h"
 #include "soulnote.h"
+#include "qtwin.h"
+
 #include <QtCore/QDir>
 #include <QtCore/QTextStream>
 #include <QtCore/QFileInfo>
@@ -33,8 +37,8 @@
 #include <QtGui/QApplication>
 #include <QtGui/QMainWindow>
 
-#include <QtNetwork/QLocalServer>
-#include <QtNetwork/QLocalSocket>
+/*#include <QtNetwork/QLocalServer>
+#include <QtNetwork/QLocalSocket>*/
 
 enum { OptionIndent = 4, DescriptionIndent = 24 };
 
@@ -137,7 +141,7 @@ int main(int argc, char **argv)
         bool useGUI = getenv("DISPLAY") != 0;
     #else
         bool useGUI = true;
-    #endif
+    #endif           
 
     QApplication app(argc, argv, useGUI); //QLatin1String
 
@@ -190,7 +194,15 @@ int main(int argc, char **argv)
     }
 
     SoulNote *window = new SoulNote();
+    qApp->setWindowIcon(QIcon(":/SoulNoteIcon.png"));
+    window->setAcceptDrops(true);
+
     window->show();
+
+    for ( int i = 0; i < app.arguments().size(); i++ ) {
+        if ( i == 1 )
+            window->openDocument( app.arguments()[1] );
+    }
 
     try {
         return app.exec();

@@ -40,7 +40,7 @@
 
 const char * const TE_VERSION_LONG      = TE_VERSION;
 const char * const TE_AUTHOR            = "Hamed Nemati";
-const char * const TE_YEAR              = "2010";
+const char * const TE_YEAR              = "2012";
 
 #ifdef TE_REVISION
 const char * const TE_REVISION_STR      = STRINGIFY(TE_REVISION);

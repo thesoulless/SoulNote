@@ -26,6 +26,7 @@
 #include <QtGui/QCompleter>
 #include <QStringListModel>
 #include <QObject>
+//#include "soulnote.h"
 
 QT_BEGIN_NAMESPACE
 class QPaintEvent;
@@ -33,6 +34,8 @@ class QResizeEvent;
 class QSize;
 class QWidget;
 QT_END_NAMESPACE
+
+class SoulNote;
 
 class LineNumberArea;
 
@@ -56,6 +59,7 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent *event);
+    void dragEnterEvent(QDragEnterEvent *e);
 //    void keyPressEvent(QKeyEvent *e);
 //    void focusInEvent(QFocusEvent *e);
 
@@ -65,6 +69,7 @@ public slots:
 //    void findNext();
     void replaceExpretion(const QString&);
     void clearFind();
+    void dropEvent(QDropEvent *e);
 
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
@@ -77,6 +82,7 @@ private:
     bool m_isFirstTime;
     QString m_searchString;
     QString m_lastFindString;
+    SoulNote *m_parent;
 //    QString textUnderCursor() const;
 //    QAbstractItemModel *modelFromDic(const QString& incorrect, int size);
 //    QCompleter *c;

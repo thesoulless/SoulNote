@@ -39,9 +39,3 @@ void About::changeEvent(QEvent *e)
         break;
     }
 }
-
-void About::on_label_2_linkActivated(QString link)
-{
-    Q_UNUSED(link);
-    //QDesktopServices::openUrl(QUrl(link));
-}

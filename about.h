@@ -37,8 +37,6 @@ protected:
 private:
     Ui::About ui;
 
-private slots:
-    void on_label_2_linkActivated(QString link);
 };
 
 #endif // ABOUT_H

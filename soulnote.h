@@ -41,6 +41,7 @@ class QHBoxLayout;
 class QTextCodec;
 class QSettings;
 class About;
+class Preferences;
 QT_END_NAMESPACE
 
 
@@ -60,6 +61,7 @@ public:
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *);
+    void dragEnterEvent(QDragEnterEvent *e);
 
 private:
     bool eventFilter(QObject *, QEvent *);
@@ -95,7 +97,9 @@ private:
     bool m_wasHidden;
     bool maybeSave();
     About *m_about;
+    Preferences *m_preferences;
     void aboutSoulNote();
+    void preferencesSoulNote();
 //    QSettings *m_settings;
 
 signals:
@@ -139,6 +143,9 @@ private slots:
     void writeSettings();
     void readSettings();
     void destroyAboutDialog();
+    void destroyPreferencesDialog();
+
+    void dropEvent(QDropEvent *e);
 };
 
 class GoToLine : public QWidget

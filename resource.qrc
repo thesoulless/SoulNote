@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
         <file>SoulNote.png</file>
+        <file>SoulNoteIcon.png</file>
     </qresource>
 </RCC>

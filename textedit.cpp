@@ -22,19 +22,18 @@
 #include <QtCore/QDebug>
 #include "findwidget.h"
 #include "textedit.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/param.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <fstream>
+#include "soulnote.h"
 
 TextEdit::TextEdit(QWidget *parent) : QPlainTextEdit(parent)
 {
     lineNumberArea = new LineNumberArea(this);
     m_lastFindString = QString();
-    //setStyleSheet("QPlainTextEdit {color:#8fd2de; background: #2e3436;}"); //background
+    m_parent = static_cast<SoulNote *>(parent);
+    //m_parent = dynamic_cast<SoulNote *>(parent);
+
+    setStyleSheet("QPlainTextEdit { selection-color: white; selection-background-color: darkblue; }");
+
+    setAcceptDrops(true);
 
     connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberAreaWidth(int)));
     connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberArea(QRect,int)));
@@ -97,6 +96,9 @@ void TextEdit::resizeEvent(QResizeEvent *e)
     lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth() + 12, cr.height()));
 }
 
+/*!
+ *  Highlight background of the current line.
+ */
 void TextEdit::highlightCurrentLine()
 {
     QList<QTextEdit::ExtraSelection> extraSelections;
@@ -145,6 +147,12 @@ void TextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
     }
 }
 
+/*!
+ *  Move the cursor to the line.
+ *
+ *  \param  line    number of the line.
+ *  \param  column  number of the cursor column.
+ */
 void TextEdit::gotoLine(int line, int column)
 {
     const int blockNumber = line - 1;
@@ -168,9 +176,16 @@ void TextEdit::gotoLine(int line, int column)
     }
 }
 
+/*!
+ *  Find a string within document.
+ *
+ *  \param  findString  string to be found.
+ *  \param  options     find options.
+ */
 void TextEdit::findExpretion(const QString &findString, QTextDocument::FindFlags options)
 {
-    highlight(findString, options);
+    /*! \todo fix the performance! */
+    //highlight(findString, options);
 
     QTextDocument *document = this->document();
     QTextCursor findCursor(document);
@@ -216,6 +231,13 @@ void TextEdit::findExpretion(const QString &findString, QTextDocument::FindFlags
     m_lastFindString = findString;
 }
 
+/*!
+ *  \fn void TextEdit::highlight(const QString &findString, QTextDocument::FindFlags options)
+ *  Highlight texts that match the find query in document.
+ *
+ *  \param &findString  text to be find in document.
+ *  \param options      QTextDocument::FindFlags find options.
+ */
 void TextEdit::highlight(const QString &findString, QTextDocument::FindFlags options)
 {
     clearFind();
@@ -225,7 +247,7 @@ void TextEdit::highlight(const QString &findString, QTextDocument::FindFlags opt
     colorFormat.setForeground(Qt::white);
     QPalette a;
 
-    QBrush back(a.brush(QPalette::Window).color().darker(120));
+    QBrush back(a.brush(QPalette::Link).color());//.darker(120));
     colorFormat.setBackground(back);
 
     while (!highlightCursor.isNull() && !highlightCursor.atEnd()) {
@@ -237,18 +259,59 @@ void TextEdit::highlight(const QString &findString, QTextDocument::FindFlags opt
     }
 }
 
+/*!
+ *  Replace the found text with new text.
+ *
+ *  \param replaceString string to be replaced.
+ */
 void TextEdit::replaceExpretion(const QString &replaceString){
     QTextCursor qc = this->textCursor();
     if (qc.hasSelection())
         qc.insertText(replaceString);
 }
 
+/*!
+ *  Clear highlight of the found text.
+ */
 void TextEdit::clearFind()
 {
     QTextDocument *document = this->document();
     QTextCursor highlightCursor(document);
     QTextCharFormat plainFormat(highlightCursor.charFormat());
+    plainFormat.setBackground(Qt::white);
+    plainFormat.setForeground(Qt::black);
     highlightCursor.movePosition(QTextCursor::Start, QTextCursor::MoveAnchor);
     highlightCursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
     highlightCursor.setCharFormat(plainFormat);
+}
+
+void TextEdit::dropEvent(QDropEvent *event)
+{
+    QList<QUrl> urlList;
+    QString fName;
+    QFileInfo info;
+
+    if (event->mimeData()->hasUrls() && (event->mimeData()->hasText()))
+    {
+        urlList = event->mimeData()->urls();
+
+        if ( urlList.size() > 0)
+        {
+            fName = urlList[0].toLocalFile();
+            info.setFile( fName );
+            if ( info.isFile() )
+                    m_parent->openDocument(fName);
+        }
+        event->acceptProposedAction();
+    } else {
+        QPlainTextEdit::dropEvent(event);
+    }
+}
+
+void TextEdit::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls())
+        event->acceptProposedAction();
+    else
+        QPlainTextEdit::dragEnterEvent(event);
 }

@@ -45,13 +45,13 @@ FindWidget::FindWidget(TextEdit *parent) :
     m_replaceAll = new QPushButton(tr("Replace All"), this);
     m_close = new QPushButton(tr(""), this);
     m_close->setFlat(true);
-    //    m_close->
+
     QStyle *style = this->style();
     QIcon closeIcon = style->standardIcon(QStyle::SP_DialogCloseButton);
+
     m_close->setIcon(closeIcon);
     m_close->setStyleSheet("margin:0px; padding:0px; border: none;");
     m_close->setIconSize(QSize(20, 20));
-
     m_close->setMaximumSize(22, 22);
     m_findNext->setMaximumSize(25, 25);
     m_findPrevious->setMaximumSize(25, 25);
